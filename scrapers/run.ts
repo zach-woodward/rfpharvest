@@ -1,7 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { getScraper, registerScraper } from "./lib/scraper-registry";
 import { ConcordNhScraper } from "./adapters/concord-nh";
-import type { ScraperConfig, ScrapedRfp } from "./lib/types";
+import { upsertRfp } from "./lib/upsert";
+import type { ScraperConfig } from "./lib/types";
 
 // Register municipality-specific scrapers
 registerScraper("concord-nh", new ConcordNhScraper());
@@ -58,61 +59,34 @@ async function main() {
 
       let newCount = 0;
       let updatedCount = 0;
+      let spamCount = 0;
+      let errorCount = 0;
+      const errorReasons: string[] = [];
 
       for (const rfp of scrapedRfps) {
-        const record = {
-          municipality_id: muni.id,
-          title: rfp.title,
-          description: rfp.description || null,
-          category: rfp.category || null,
-          status: "open" as const,
-          posted_date: rfp.posted_date || null,
-          deadline_date: rfp.deadline_date || null,
-          pre_bid_date: rfp.pre_bid_date || null,
-          qa_deadline: rfp.qa_deadline || null,
-          source_url: rfp.source_url || null,
-          document_urls: rfp.document_urls || [],
-          contact_name: rfp.contact_name || null,
-          contact_email: rfp.contact_email || null,
-          contact_phone: rfp.contact_phone || null,
-          estimated_value: rfp.estimated_value || null,
-          requires_signup: rfp.requires_signup || false,
-          raw_data: rfp.raw_data || {},
-          scraped_at: new Date().toISOString(),
-        };
-
-        // Upsert by source_url (dedup)
-        if (record.source_url) {
-          const { data: existing } = await supabase
-            .from("rfps")
-            .select("id")
-            .eq("source_url", record.source_url)
-            .single();
-
-          if (existing) {
-            await supabase.from("rfps").update(record).eq("id", existing.id);
-            updatedCount++;
-          } else {
-            await supabase.from("rfps").insert(record);
-            newCount++;
-          }
-        } else {
-          // No source_url — insert and hope for no dups
-          await supabase.from("rfps").insert(record);
-          newCount++;
+        const result = await upsertRfp(supabase, muni.id, rfp);
+        if (result.outcome === "new") newCount++;
+        else if (result.outcome === "updated") updatedCount++;
+        else if (result.outcome === "spam") spamCount++;
+        else if (result.outcome === "error") {
+          errorCount++;
+          if (result.reason) errorReasons.push(result.reason);
         }
       }
 
-      // Update log
+      const status = errorCount > 0 && newCount + updatedCount === 0 ? "error" : errorCount > 0 ? "partial" : "success";
+
       if (logId) {
         await supabase
           .from("scrape_logs")
           .update({
-            status: "success",
+            status,
             completed_at: new Date().toISOString(),
             rfps_found: scrapedRfps.length,
             rfps_new: newCount,
             rfps_updated: updatedCount,
+            error_message: errorReasons.length ? errorReasons.slice(0, 5).join(" | ") : null,
+            details: { spam_rejected: spamCount, row_errors: errorCount },
           })
           .eq("id", logId);
       }
@@ -123,7 +97,9 @@ async function main() {
         .update({ last_scraped_at: new Date().toISOString() })
         .eq("id", muni.id);
 
-      console.log(`[scraper] ${muni.name}: ${newCount} new, ${updatedCount} updated`);
+      console.log(
+        `[scraper] ${muni.name}: ${newCount} new, ${updatedCount} updated, ${spamCount} spam, ${errorCount} errors`
+      );
     } catch (error) {
       console.error(`[scraper] Error scraping ${muni.name}:`, error);
 
