@@ -14,8 +14,46 @@ interface AlertMatch {
   rfps: any[];
 }
 
-async function main() {
+export interface DigestRunSummary {
+  users_processed: number;
+  emails_sent: number;
+  emails_failed: number;
+  total_rfps_sent: number;
+}
+
+export async function runDailyDigest(): Promise<DigestRunSummary> {
+  const summary: DigestRunSummary = {
+    users_processed: 0,
+    emails_sent: 0,
+    emails_failed: 0,
+    total_rfps_sent: 0,
+  };
+
+  const qaStartedAt = new Date().toISOString();
+  const { data: qaRun } = await supabase
+    .from("qa_run_results")
+    .insert({ layer: "daily-digest", status: "running", started_at: qaStartedAt })
+    .select()
+    .single();
+  const qaRunId = qaRun?.id;
+
   console.log("[digest] Starting daily digest...");
+
+  const finish = async (status: "success" | "partial" | "error", message: string) => {
+    if (!qaRunId) return;
+    await supabase
+      .from("qa_run_results")
+      .update({
+        status,
+        completed_at: new Date().toISOString(),
+        checked: summary.users_processed,
+        issues_found: summary.emails_failed,
+        auto_fixed: summary.emails_sent,
+        message,
+        details: summary,
+      })
+      .eq("id", qaRunId);
+  };
 
   // Get all active daily alerts
   const { data: alerts, error } = await supabase
@@ -27,7 +65,8 @@ async function main() {
 
   if (error || !alerts?.length) {
     console.log("[digest] No active daily alerts");
-    return;
+    await finish("success", "no active daily alerts");
+    return summary;
   }
 
   console.log(`[digest] Processing ${alerts.length} alerts`);
@@ -45,7 +84,8 @@ async function main() {
 
   if (!recentRfps?.length) {
     console.log("[digest] No new RFPs in the last 24 hours");
-    return;
+    await finish("success", "no new RFPs in last 24h");
+    return summary;
   }
 
   // Group alerts by user
@@ -197,9 +237,12 @@ async function main() {
           .eq("id", match.alertId);
       }
 
+      summary.emails_sent++;
+      summary.total_rfps_sent += totalRfps;
       console.log(`[digest] Sent ${totalRfps} RFPs (${alertMatches.length} alerts) to ${profile.email}`);
     } catch (err) {
       console.error(`[digest] Error sending to ${profile.email}:`, err);
+      summary.emails_failed++;
 
       for (const match of alertMatches) {
         await supabase.from("notification_history").insert({
@@ -210,9 +253,22 @@ async function main() {
         });
       }
     }
+    summary.users_processed++;
   }
 
+  const status = summary.emails_failed === 0 ? "success" : summary.emails_sent === 0 ? "error" : "partial";
+  await finish(
+    status,
+    `${summary.emails_sent} sent, ${summary.emails_failed} failed, ${summary.total_rfps_sent} RFPs delivered`
+  );
   console.log("[digest] Daily digest complete.");
+  return summary;
 }
 
-main().catch(console.error);
+const isDirectRun = import.meta.url === `file://${process.argv[1]}`;
+if (isDirectRun) {
+  runDailyDigest().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

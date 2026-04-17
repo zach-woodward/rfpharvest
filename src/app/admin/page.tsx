@@ -11,6 +11,7 @@ import {
   Shield,
   RefreshCw,
   Mail,
+  Gauge,
 } from "lucide-react";
 import { ScrapeButton } from "./scrape-button";
 
@@ -96,6 +97,19 @@ export default async function AdminPage() {
       .limit(1)
       .single(),
   ]);
+
+  // Latest run per automation layer
+  const { data: qaRuns } = await supabase
+    .from("qa_run_results")
+    .select("layer, status, started_at, completed_at, checked, issues_found, auto_fixed, message")
+    .gte("started_at", d7ago)
+    .order("started_at", { ascending: false });
+
+  const latestByLayer = new Map<string, any>();
+  for (const row of qaRuns || []) {
+    if (!latestByLayer.has(row.layer)) latestByLayer.set(row.layer, row);
+  }
+  const automationLayers = Array.from(latestByLayer.values());
 
   // Compute stale municipalities (active, last_scraped_at > 48hrs ago or null)
   const staleMunis = (municipalities || []).filter((m: any) => {
@@ -210,6 +224,42 @@ export default async function AdminPage() {
             </div>
           </div>
         </div>
+      </section>
+
+      {/* Automation Layers — any new layer auto-displays after its first run */}
+      <section className="bg-white border border-slate-200 mb-8">
+        <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-2">
+          <Gauge className="w-4 h-4 text-slate-500" />
+          <h2 className="text-sm font-semibold text-slate-900">Automation Layers</h2>
+          <span className="text-xs text-slate-400 ml-auto">last 7 days</span>
+        </div>
+        {automationLayers.length === 0 ? (
+          <div className="px-4 py-6 text-center text-sm text-slate-500">
+            No automation runs yet. Jobs will show here the first time the worker executes them.
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {automationLayers.map((run) => (
+              <div key={run.layer} className="px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-3 min-w-0">
+                  <LogStatusBadge status={run.status} />
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-slate-900">{run.layer}</div>
+                    <div className="text-xs text-slate-500 truncate">
+                      {run.message || `${run.checked} checked · ${run.issues_found} issues · ${run.auto_fixed} auto-fixed`}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right shrink-0 ml-4">
+                  <div className="text-xs text-slate-500">Last run</div>
+                  <div className="text-sm text-slate-700">
+                    {formatRelativeTime(run.started_at)}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Quick links */}

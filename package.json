@@ -11,7 +11,8 @@
     "scrape:summarize": "tsx workers/summarize.ts",
     "db:migrate": "supabase db push",
     "db:seed": "tsx supabase/seed/index.ts",
-    "emails:daily": "tsx workers/daily-digest.ts"
+    "emails:daily": "tsx workers/daily-digest.ts",
+    "worker": "tsx workers/scheduler.ts"
   },
   "dependencies": {
     "@stripe/stripe-js": "^2.4.0",
@@ -37,6 +38,7 @@
   },
   "devDependencies": {
     "@types/node": "^20",
+    "@types/node-cron": "^3.0.11",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "autoprefixer": "^10.0.1",
