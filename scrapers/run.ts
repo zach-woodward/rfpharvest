@@ -1,11 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 import { getScraper, registerScraper } from "./lib/scraper-registry";
-import { ConcordNhScraper } from "./adapters/concord-nh";
+import { CivicPlusScraper } from "./adapters/civicplus";
 import { upsertRfp } from "./lib/upsert";
 import type { ScraperConfig } from "./lib/types";
 
-// Register municipality-specific scrapers
-registerScraper("concord-nh", new ConcordNhScraper());
+// Register platform-level scrapers. CivicPlus covers 8 NH towns today
+// (Concord, Nashua, Laconia, Hampton, Hanover, Londonderry, Berlin, Bedford).
+registerScraper("civicplus", new CivicPlusScraper());
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
