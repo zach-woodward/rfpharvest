@@ -4,6 +4,9 @@ import { ConcordNhScraper } from "./concord-nh-scraper";
 import { CivicPlusScraper } from "./civicplus-scraper";
 import { DrupalRfpsScraper } from "./drupal-rfps-scraper";
 import { ClaremontScraper } from "./claremont-scraper";
+import { PortsmouthScraper } from "./portsmouth-scraper";
+import { DoverScraper } from "./dover-scraper";
+import { ManchesterScraper } from "./manchester-scraper";
 
 export type { ScrapedRfp, ScraperConfig, ScraperAdapter };
 
@@ -13,6 +16,9 @@ const registry: Record<string, ScraperAdapter> = {
   civicplus: new CivicPlusScraper(),
   "drupal-rfps": new DrupalRfpsScraper(),
   claremont: new ClaremontScraper(),
+  portsmouth: new PortsmouthScraper(),
+  dover: new DoverScraper(),
+  manchester: new ManchesterScraper(),
 };
 
 export function getScraper(name: string): ScraperAdapter {
