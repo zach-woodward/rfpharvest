@@ -57,10 +57,9 @@ export const municipalityPlatforms: Record<string, PlatformInfo> = {
   londonderry: {
     platform: "CivicPlus",
     scraper: "civicplus",
-    accessibility: "cloudflare",
-    accessibilityLabel: "Cloudflare blocked",
-    notes: "CivicPlus /bids.aspx but Cloudflare challenge too strong for FlareSolverr (timeout).",
-    suggestedFix: "FlareSolverr cannot bypass. Try Playwright with stealth plugin or manual data entry.",
+    accessibility: "direct",
+    accessibilityLabel: "Stealth browser",
+    notes: "CivicPlus /bids.aspx behind Cloudflare; scraped via Puppeteer stealth (requires_js=true).",
   },
   berlin: {
     platform: "CivicPlus",
