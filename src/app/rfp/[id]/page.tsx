@@ -1,6 +1,47 @@
-import { createServerSupabase } from "@/lib/supabase/server";
+import { createServerSupabase, createServiceSupabase } from "@/lib/supabase/server";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { stateSlug, townSlug, stateNameFromSlug } from "@/lib/seo/slugs";
+
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://rfpharvest.com";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { id: string };
+}): Promise<Metadata> {
+  const supabase = createServiceSupabase();
+  const { data: rfp } = await supabase
+    .from("rfps")
+    .select("title, description, ai_summary, deadline_date, municipality:municipalities(name, state)")
+    .eq("id", params.id)
+    .single();
+
+  if (!rfp) return { title: "RFP not found" };
+
+  const muni = (rfp.municipality as { name?: string; state?: string } | null) || {};
+  const location = muni.name ? `${muni.name}${muni.state ? `, ${muni.state}` : ""}` : "";
+  const title = location ? `${rfp.title} — ${location}` : rfp.title;
+  const rawDescription =
+    rfp.ai_summary ||
+    rfp.description ||
+    `RFP from ${location || "a U.S. municipality"}. Track deadlines, contacts, and documents on RFP Harvest.`;
+  const description = rawDescription.replace(/\s+/g, " ").trim().slice(0, 160);
+
+  return {
+    title,
+    description,
+    alternates: { canonical: `/rfp/${params.id}` },
+    openGraph: {
+      type: "article",
+      title,
+      description,
+      url: `${SITE_URL}/rfp/${params.id}`,
+    },
+    twitter: { card: "summary_large_image", title, description },
+  };
+}
 import {
   ArrowLeft,
   ExternalLink,
@@ -81,8 +122,57 @@ export default async function RfpDetailPage({
 
   const requirements: BidRequirement[] = rfp.bid_requirements || [];
 
+  const muniState = rfp.municipality?.state ? stateSlug(rfp.municipality.state) : "";
+  const muniTown = rfp.municipality?.name ? townSlug(rfp.municipality.name) : "";
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "GovernmentService",
+        name: rfp.title,
+        description: (rfp.ai_summary || rfp.description || "").replace(/\s+/g, " ").trim().slice(0, 500) || undefined,
+        serviceType: "Request for Proposal",
+        url: `${SITE_URL}/rfp/${rfp.id}`,
+        provider: rfp.municipality?.name
+          ? {
+              "@type": "GovernmentOrganization",
+              name: `${rfp.municipality.name}${rfp.municipality.state ? `, ${rfp.municipality.state}` : ""}`,
+            }
+          : undefined,
+        availableChannel: rfp.source_url
+          ? { "@type": "ServiceChannel", serviceUrl: rfp.source_url }
+          : undefined,
+        validThrough: rfp.deadline_date || undefined,
+        datePosted: rfp.posted_date || undefined,
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "RFPs", item: `${SITE_URL}/` },
+          muniState && {
+            "@type": "ListItem",
+            position: 2,
+            name: stateNameFromSlug(muniState),
+            item: `${SITE_URL}/rfps/${muniState}`,
+          },
+          muniState && muniTown && rfp.municipality?.name && {
+            "@type": "ListItem",
+            position: 3,
+            name: rfp.municipality.name,
+            item: `${SITE_URL}/rfps/${muniState}/${muniTown}`,
+          },
+          { "@type": "ListItem", position: 4, name: rfp.title, item: `${SITE_URL}/rfp/${rfp.id}` },
+        ].filter(Boolean),
+      },
+    ],
+  };
+
   return (
     <DashboardLayout>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <div className="max-w-5xl">
         {/* Back link */}
         <Link
