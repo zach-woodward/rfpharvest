@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "scrape": "tsx scrapers/run.ts",
+    "scrape": "tsx scripts/scrape.ts",
     "scrape:summarize": "tsx workers/summarize.ts",
     "db:migrate": "supabase db push",
     "db:seed": "tsx supabase/seed/index.ts",

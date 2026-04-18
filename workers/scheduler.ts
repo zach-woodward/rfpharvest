@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import { runAllScrapers } from "../scrapers/run";
+import { runAllScrapers } from "../src/lib/scraper/runner";
 import { runDailyDigest } from "./daily-digest";
 
 const TZ = process.env.CRON_TZ || "America/New_York";

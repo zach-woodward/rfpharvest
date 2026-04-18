@@ -1,12 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { getScraper, registerScraper } from "./lib/scraper-registry";
-import { CivicPlusScraper } from "./adapters/civicplus";
-import { upsertRfp } from "./lib/upsert";
-import type { ScraperConfig } from "./lib/types";
-
-// Register platform-level scrapers. CivicPlus covers 8 NH towns today
-// (Concord, Nashua, Laconia, Hampton, Hanover, Londonderry, Berlin, Bedford).
-registerScraper("civicplus", new CivicPlusScraper());
+import { getScraper } from "./index";
+import { upsertRfp } from "./upsert";
+import type { ScraperConfig } from "./types";
 
 export interface ScrapeRunSummary {
   municipalities_scraped: number;
@@ -45,7 +40,7 @@ export async function runAllScrapers(targetId?: string): Promise<ScrapeRunSummar
     .single();
   const qaRunId = qaRun?.id;
 
-  console.log("[scraper] Starting scrape run...");
+  console.log("[scrape] Starting scrape run...");
 
   let query = supabase.from("municipalities").select("*").eq("active", true);
   if (targetId) query = query.eq("id", targetId);
@@ -54,7 +49,7 @@ export async function runAllScrapers(targetId?: string): Promise<ScrapeRunSummar
 
   if (error || !municipalities?.length) {
     const msg = `No municipalities found: ${error?.message || "empty result"}`;
-    console.error("[scraper]", msg);
+    console.error("[scrape]", msg);
     if (qaRunId) {
       await supabase
         .from("qa_run_results")
@@ -64,7 +59,7 @@ export async function runAllScrapers(targetId?: string): Promise<ScrapeRunSummar
     throw new Error(msg);
   }
 
-  console.log(`[scraper] Found ${municipalities.length} municipalities to scrape`);
+  console.log(`[scrape] Found ${municipalities.length} municipalities to scrape`);
 
   const summary: ScrapeRunSummary = {
     municipalities_scraped: municipalities.length,
@@ -78,7 +73,7 @@ export async function runAllScrapers(targetId?: string): Promise<ScrapeRunSummar
   };
 
   for (const muni of municipalities) {
-    console.log(`\n[scraper] Scraping: ${muni.name} (${muni.scraper_type})`);
+    console.log(`\n[scrape] Scraping: ${muni.name} (${muni.scraper_type})`);
 
     const { data: log } = await supabase
       .from("scrape_logs")
@@ -91,13 +86,13 @@ export async function runAllScrapers(targetId?: string): Promise<ScrapeRunSummar
       const scraper = getScraper(muni.scraper_type);
       const config: ScraperConfig = {
         rfp_page_url: muni.rfp_page_url || muni.website_url || "",
-        ...muni.scraper_config,
+        ...((muni.scraper_config as object) || {}),
       };
 
       if (!config.rfp_page_url) throw new Error("No RFP page URL configured");
 
       const scrapedRfps = await scraper.scrape(config);
-      console.log(`[scraper] Found ${scrapedRfps.length} RFPs from ${muni.name}`);
+      console.log(`[scrape] Found ${scrapedRfps.length} RFPs from ${muni.name}`);
 
       let newCount = 0;
       let updatedCount = 0;
@@ -159,10 +154,13 @@ export async function runAllScrapers(targetId?: string): Promise<ScrapeRunSummar
       });
 
       console.log(
-        `[scraper] ${muni.name}: ${newCount} new, ${updatedCount} updated, ${spamCount} spam, ${errorCount} errors`
+        `[scrape] ${muni.name}: ${newCount} new, ${updatedCount} updated, ${spamCount} spam, ${errorCount} errors`
       );
+
+      // Polite delay between municipalities
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     } catch (err) {
-      console.error(`[scraper] Error scraping ${muni.name}:`, err);
+      console.error(`[scrape] Error scraping ${muni.name}:`, err);
       const errorMessage = err instanceof Error ? err.message : String(err);
       summary.municipality_errors++;
       summary.per_muni.push({
@@ -211,15 +209,6 @@ export async function runAllScrapers(targetId?: string): Promise<ScrapeRunSummar
       .eq("id", qaRunId);
   }
 
-  console.log("\n[scraper] Scrape run complete.");
+  console.log("\n[scrape] Scrape run complete.");
   return summary;
-}
-
-const isDirectRun = import.meta.url === `file://${process.argv[1]}`;
-if (isDirectRun) {
-  const targetId = process.argv[2];
-  runAllScrapers(targetId).catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
 }

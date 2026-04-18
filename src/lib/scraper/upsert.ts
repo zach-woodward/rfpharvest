@@ -46,7 +46,7 @@ export async function upsertRfp(
     title: normalized.title,
     description: normalized.description,
     category: normalized.category,
-    status: "open" as const,
+    status: normalized.status,
     posted_date: normalized.posted_date,
     deadline_date: normalized.deadline_date,
     pre_bid_date: normalized.pre_bid_date,
@@ -109,6 +109,10 @@ function buildUpdatePatch(
 
   if (normalized.requires_signup) {
     patch.requires_signup = true;
+  }
+
+  if (normalized.status !== "open" && normalized.status !== "unknown") {
+    patch.status = normalized.status;
   }
 
   return patch;

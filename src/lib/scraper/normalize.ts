@@ -25,6 +25,8 @@ const SPAM_TITLES = new Set([
   "lorem ipsum", "example", "test", "placeholder", "untitled",
 ]);
 
+export type RfpStatus = "open" | "closed" | "awarded" | "canceled" | "unknown";
+
 export function titleCase(input: string | null | undefined): string {
   if (!input) return "";
   const trimmed = input.trim().replace(/\s+/g, " ");
@@ -99,10 +101,21 @@ export function cleanPhone(input: string | null | undefined): string | null {
   return input.trim();
 }
 
+export function normalizeStatus(raw: string | null | undefined): RfpStatus {
+  if (!raw) return "open";
+  const s = raw.toLowerCase().trim();
+  if (s.includes("closed") || s.includes("no longer accepting")) return "closed";
+  if (s.includes("awarded") || s.includes("under review")) return "awarded";
+  if (s.includes("cancel")) return "canceled";
+  if (s === "open" || s.includes("accepting") || s.includes("active")) return "open";
+  return "unknown";
+}
+
 export interface NormalizedRfp {
   title: string;
   description: string | null;
   category: string | null;
+  status: RfpStatus;
   posted_date: string | null;
   deadline_date: string | null;
   pre_bid_date: string | null;
@@ -121,6 +134,7 @@ export function normalizeRfp(rfp: {
   title?: string;
   description?: string;
   category?: string;
+  status?: string;
   posted_date?: string;
   deadline_date?: string;
   pre_bid_date?: string;
@@ -141,6 +155,7 @@ export function normalizeRfp(rfp: {
     title,
     description: cleanString(rfp.description),
     category: rfp.category ? titleCase(rfp.category) : null,
+    status: normalizeStatus(rfp.status),
     posted_date: rfp.posted_date || null,
     deadline_date: rfp.deadline_date || null,
     pre_bid_date: rfp.pre_bid_date || null,
