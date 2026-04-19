@@ -7,6 +7,8 @@ import { ClaremontScraper } from "./claremont-scraper";
 import { PortsmouthScraper } from "./portsmouth-scraper";
 import { DoverScraper } from "./dover-scraper";
 import { ManchesterScraper } from "./manchester-scraper";
+import { DerryScraper } from "./derry-scraper";
+import { RochesterScraper } from "./rochester-scraper";
 
 export type { ScrapedRfp, ScraperConfig, ScraperAdapter };
 
@@ -19,6 +21,8 @@ const registry: Record<string, ScraperAdapter> = {
   portsmouth: new PortsmouthScraper(),
   dover: new DoverScraper(),
   manchester: new ManchesterScraper(),
+  derry: new DerryScraper(),
+  rochester: new RochesterScraper(),
 };
 
 export function getScraper(name: string): ScraperAdapter {
