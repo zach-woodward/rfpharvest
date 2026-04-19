@@ -150,22 +150,19 @@ export const municipalityPlatforms: Record<string, PlatformInfo> = {
 
   // External portal sites
   lebanon: {
-    platform: "OpenGov Procurement",
-    scraper: "generic",
-    accessibility: "portal",
-    accessibilityLabel: "External portal",
-    portalName: "OpenGov",
-    notes: "Requires OpenGov portal registration; API may be available",
-    suggestedFix: "Register for OpenGov API access or build portal-specific scraper.",
+    platform: "CivicPlus",
+    scraper: "civicplus",
+    accessibility: "direct",
+    accessibilityLabel: "Direct scrape (no bids)",
+    notes: "Uses /bids.aspx but listing currently empty — likely a CivicPlus skin variant or no open bids. Needs recheck when a bid is posted.",
   },
   keene: {
     platform: "Public Purchase",
-    scraper: "generic",
-    accessibility: "portal",
-    accessibilityLabel: "External portal",
+    scraper: "publicpurchase",
+    accessibility: "direct",
+    accessibilityLabel: "Public view",
     portalName: "Public Purchase",
-    notes: "Requires Public Purchase account to view bids",
-    suggestedFix: "Register for Public Purchase account or build portal-specific scraper.",
+    notes: "Public agency page at /gems/keene,nh/buyer/public/publicInfo — no login required. Content has display:none chaff; adapter strips it.",
   },
 
   // Unstructured content
