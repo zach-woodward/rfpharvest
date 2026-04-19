@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { createServiceSupabase } from "@/lib/supabase/server";
 import { stateSlug, townSlug } from "@/lib/seo/slugs";
+import { TOPICS } from "@/lib/seo/topics";
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://rfpharvest.com";
 
@@ -11,7 +12,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const entries: MetadataRoute.Sitemap = [
     { url: `${SITE_URL}/`, changeFrequency: "daily", priority: 1.0 },
+    { url: `${SITE_URL}/rfps`, changeFrequency: "daily", priority: 0.9 },
   ];
+
+  for (const t of TOPICS) {
+    entries.push({
+      url: `${SITE_URL}/rfps/topic/${t.slug}`,
+      changeFrequency: "daily",
+      priority: 0.7,
+    });
+  }
 
   const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
 
