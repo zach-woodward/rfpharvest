@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     template: "%s | RFP Harvest",
   },
   description:
-    "Track and discover RFPs from municipal websites across the U.S. AI-powered summaries, real-time alerts, and comprehensive search for government contracting opportunities.",
+    "Track and discover RFPs from municipal websites across New England and beyond. AI-powered summaries, real-time alerts, and comprehensive search for government contracting opportunities — New Hampshire, Maine, Massachusetts, Connecticut, Rhode Island, and Vermont.",
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
