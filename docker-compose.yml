@@ -4,6 +4,7 @@ services:
   web:
     build:
       context: .
+      target: web
       args:
         NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
@@ -11,6 +12,18 @@ services:
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
     ports:
       - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      - FLARESOLVERR_URL=http://flaresolverr:8191
+    depends_on:
+      - flaresolverr
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      target: worker
     env_file:
       - .env
     environment:

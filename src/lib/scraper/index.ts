@@ -10,6 +10,7 @@ import { ManchesterScraper } from "./manchester-scraper";
 import { DerryScraper } from "./derry-scraper";
 import { RochesterScraper } from "./rochester-scraper";
 import { PublicPurchaseScraper } from "./publicpurchase-scraper";
+import { BidNetScraper } from "./bidnet-scraper";
 
 export type { ScrapedRfp, ScraperConfig, ScraperAdapter };
 
@@ -25,6 +26,7 @@ const registry: Record<string, ScraperAdapter> = {
   derry: new DerryScraper(),
   rochester: new RochesterScraper(),
   publicpurchase: new PublicPurchaseScraper(),
+  bidnet: new BidNetScraper(),
 };
 
 export function getScraper(name: string): ScraperAdapter {

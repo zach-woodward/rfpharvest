@@ -68,9 +68,13 @@ export default function Footer() {
             </ul>
           </div>
         </div>
-        <div className="mt-10 pt-6 border-t border-slate-100 text-xs text-slate-500 flex flex-wrap items-center justify-between gap-2">
+        <div className="mt-10 pt-6 border-t border-slate-100 text-xs text-slate-500 flex flex-wrap items-center justify-between gap-3">
           <div>© {YEAR} RFP Harvest</div>
-          <div>Municipal bid opportunities, updated every 6 hours.</div>
+          <div className="flex items-center gap-4">
+            <Link href="/privacy" className="hover:text-slate-700">Privacy</Link>
+            <Link href="/terms" className="hover:text-slate-700">Terms</Link>
+            <span>Municipal bid opportunities, updated every 6 hours.</span>
+          </div>
         </div>
       </div>
     </footer>

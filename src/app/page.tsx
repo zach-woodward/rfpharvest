@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { FileText, Bell, Search, Zap, Shield, MapPin, Wheat } from "lucide-react";
 import { createServiceSupabase } from "@/lib/supabase/server";
+import Footer from "@/components/layout/Footer";
 
 export const dynamic = "force-dynamic";
 
@@ -231,26 +232,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 py-12">
-        <div className="container-app flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-forest-600 flex items-center justify-center">
-              <Wheat className="w-3 h-3 text-white" />
-            </div>
-            <span className="text-sm font-medium text-slate-600">
-              RFP Harvest
-            </span>
-          </div>
-          <div className="flex items-center gap-6 text-sm text-slate-500">
-            <a href="#coverage" className="hover:text-slate-700">Coverage</a>
-            <Link href="/request-town" className="hover:text-slate-700">Request a town</Link>
-            <Link href="/privacy" className="hover:text-slate-700">Privacy</Link>
-            <Link href="/terms" className="hover:text-slate-700">Terms</Link>
-            <span>&copy; {new Date().getFullYear()}</span>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

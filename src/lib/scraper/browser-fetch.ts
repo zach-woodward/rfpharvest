@@ -15,7 +15,9 @@
 
 const FLARESOLVERR_TIMEOUT_MS = 60000;
 const PUPPETEER_NAV_TIMEOUT_MS = 45000;
-const CLOUDFLARE_WAIT_MS = 6000;
+const INITIAL_WAIT_MS = 4000;
+const CLOUDFLARE_POLL_INTERVAL_MS = 2000;
+const CLOUDFLARE_MAX_WAIT_MS = 30000;
 
 export async function fetchWithBrowser(url: string): Promise<string> {
   const flareSolverrUrl = process.env.FLARESOLVERR_URL;
@@ -84,11 +86,16 @@ async function fetchViaStealth(url: string): Promise<string> {
     await page.setViewport({ width: 1366, height: 900 });
 
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: PUPPETEER_NAV_TIMEOUT_MS });
-    await new Promise((r) => setTimeout(r, CLOUDFLARE_WAIT_MS));
+    await new Promise((r) => setTimeout(r, INITIAL_WAIT_MS));
 
-    const title = await page.title().catch(() => "");
-    if (/just a moment|attention required|cloudflare/i.test(title)) {
-      await new Promise((r) => setTimeout(r, CLOUDFLARE_WAIT_MS));
+    // Cloudflare JS challenges can take 10–20s to resolve. Poll the
+    // document title until it stops saying "Just a moment" or we hit
+    // the max wait. OpenGov portals in particular need this.
+    const deadline = Date.now() + CLOUDFLARE_MAX_WAIT_MS;
+    let title = await page.title().catch(() => "");
+    while (Date.now() < deadline && /just a moment|attention required|cloudflare/i.test(title)) {
+      await new Promise((r) => setTimeout(r, CLOUDFLARE_POLL_INTERVAL_MS));
+      title = await page.title().catch(() => "");
     }
 
     const html = await page.content();
