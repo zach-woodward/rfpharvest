@@ -58,6 +58,12 @@ export class CivicPlusScraper implements ScraperAdapter {
           const title = titleLink.text().trim();
           if (!title) return;
 
+          // Skip archive/awarded entries — some agencies (e.g. Natick MA)
+          // publish their full historical archive in /bids.aspx with an
+          // "Award -" prefix. Ingesting those as open bids would pollute
+          // the index. Proper current-open bids never start that way.
+          if (/^(award\s*[-–]|awarded\b)/i.test(title)) return;
+
           let sourceUrl = titleLink.attr("href") || "";
           if (sourceUrl && !sourceUrl.startsWith("http")) {
             const base = new URL(url);
