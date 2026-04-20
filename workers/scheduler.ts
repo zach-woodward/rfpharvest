@@ -1,11 +1,13 @@
 import cron from "node-cron";
 import { runAllScrapers } from "../src/lib/scraper/runner";
 import { runDailyDigest } from "./daily-digest";
+import { runSummarize } from "./summarize";
 
 const TZ = process.env.CRON_TZ || "America/New_York";
 
 const SCRAPE_SCHEDULE = process.env.CRON_SCRAPE || "0 */6 * * *"; // every 6 hours
 const DIGEST_SCHEDULE = process.env.CRON_DIGEST || "0 7 * * *"; // 7am ET
+const SUMMARIZE_SCHEDULE = process.env.CRON_SUMMARIZE || "15 */2 * * *"; // every 2h at :15
 
 function timestamp() {
   return new Date().toISOString();
@@ -37,7 +39,17 @@ cron.schedule(
   { timezone: TZ }
 );
 
-console.log(`[scheduler] booted. scrape=${SCRAPE_SCHEDULE} digest=${DIGEST_SCHEDULE} tz=${TZ}`);
+cron.schedule(
+  SUMMARIZE_SCHEDULE,
+  () => {
+    void safeRun("ai-summarize", () => runSummarize());
+  },
+  { timezone: TZ }
+);
+
+console.log(
+  `[scheduler] booted. scrape=${SCRAPE_SCHEDULE} digest=${DIGEST_SCHEDULE} summarize=${SUMMARIZE_SCHEDULE} tz=${TZ}`
+);
 
 if (process.env.RUN_ON_BOOT === "1") {
   void safeRun("scrape (boot)", () => runAllScrapers());
