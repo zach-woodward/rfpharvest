@@ -4,6 +4,7 @@ import { MapPin, Layers, Clock } from "lucide-react";
 import { createServiceSupabase } from "@/lib/supabase/server";
 import { stateSlug, stateNameFromSlug } from "@/lib/seo/slugs";
 import { TOPICS } from "@/lib/seo/topics";
+import Footer from "@/components/layout/Footer";
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://rfpharvest.com";
 
@@ -83,12 +84,12 @@ export default async function RfpsIndexPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <div className="max-w-6xl mx-auto px-4 py-10">
+      <div className="max-w-6xl mx-auto px-4 py-10 flex-1 w-full">
         <header className="mb-10">
           <h1 className="text-3xl font-bold text-slate-900">
             RFPs &amp; Municipal Bid Opportunities
@@ -163,6 +164,7 @@ export default async function RfpsIndexPage() {
           </div>
         </section>
       </div>
+      <Footer />
     </div>
   );
 }

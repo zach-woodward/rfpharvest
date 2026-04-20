@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Calendar, ArrowLeft, MapPin } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin } from "lucide-react";
 import { createServiceSupabase } from "@/lib/supabase/server";
 import { TOPICS, topicBySlug, type Topic } from "@/lib/seo/topics";
 import { stateSlug, townSlug, stateNameFromSlug } from "@/lib/seo/slugs";
@@ -12,10 +12,16 @@ const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://rfpharvest.com";
 
 export const revalidate = 1800;
 
-type PageParams = { topic: string };
+const COVERED_STATES = ["nh", "me", "ma", "ct", "ri", "vt"];
 
-export async function generateStaticParams() {
-  return TOPICS.map((t) => ({ topic: t.slug }));
+type PageParams = { state: string; topic: string };
+
+export function generateStaticParams() {
+  const params: PageParams[] = [];
+  for (const state of COVERED_STATES) {
+    for (const t of TOPICS) params.push({ state, topic: t.slug });
+  }
+  return params;
 }
 
 export async function generateMetadata({
@@ -25,23 +31,34 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const topic = topicBySlug(params.topic);
   if (!topic) return { title: "Topic not found" };
-
-  const title = `${topic.name} RFPs & Bid Opportunities`;
+  const stateName = stateNameFromSlug(params.state);
+  const title = `${topic.name} RFPs in ${stateName}`;
+  const description = `Open ${topic.name.toLowerCase()} bid opportunities from ${stateName} municipalities. ${topic.metaDescription}`;
   return {
     title,
-    description: topic.metaDescription,
-    alternates: { canonical: `/rfps/topic/${topic.slug}` },
+    description,
+    alternates: { canonical: `/rfps/${params.state}/topic/${params.topic}` },
     openGraph: {
       type: "website",
       title,
-      description: topic.metaDescription,
-      url: `${SITE_URL}/rfps/topic/${topic.slug}`,
+      description,
+      url: `${SITE_URL}/rfps/${params.state}/topic/${params.topic}`,
     },
   };
 }
 
-async function loadTopicRfps(topic: Topic) {
+async function loadStateTopicRfps(state: string, topic: Topic) {
   const supabase = createServiceSupabase();
+
+  const { data: muniRows } = await supabase
+    .from("municipalities")
+    .select("id, name, state")
+    .ilike("state", state)
+    .eq("active", true);
+
+  const muniIds = (muniRows || []).map((m) => m.id as string);
+  if (muniIds.length === 0) return { open: [], otherCount: 0, muniCount: 0 };
+
   const orClauses = topic.keywords
     .map((k) => {
       const escaped = k.replace(/[%_,()]/g, (c) => `\\${c}`);
@@ -55,7 +72,8 @@ async function loadTopicRfps(topic: Topic) {
 
   const { data: rfps } = await supabase
     .from("rfps")
-    .select("id, title, description, category, status, posted_date, deadline_date, municipality:municipalities(id, name, state)")
+    .select("id, title, description, category, status, deadline_date, municipality:municipalities(id, name, state)")
+    .in("municipality_id", muniIds)
     .or(orClauses)
     .order("deadline_date", { ascending: true, nullsFirst: false })
     .limit(200);
@@ -66,37 +84,36 @@ async function loadTopicRfps(topic: Topic) {
     description: string | null;
     category: string | null;
     status: string;
-    posted_date: string | null;
     deadline_date: string | null;
     municipality: { id: string; name: string; state: string } | null;
   }>;
 
   const open = all.filter((r) => r.status === "open");
-  const stateCount = new Set(all.map((r) => r.municipality?.state).filter(Boolean)).size;
-  return { open, otherCount: all.length - open.length, stateCount };
+  return { open, otherCount: all.length - open.length, muniCount: muniIds.length };
 }
 
-export default async function TopicRfpsPage({ params }: { params: PageParams }) {
+export default async function StateTopicPage({ params }: { params: PageParams }) {
   const topic = topicBySlug(params.topic);
   if (!topic) notFound();
+  if (!COVERED_STATES.includes(params.state.toLowerCase())) notFound();
 
-  const { open, otherCount, stateCount } = await loadTopicRfps(topic);
+  const stateName = stateNameFromSlug(params.state);
+  const { open, otherCount, muniCount } = await loadStateTopicRfps(params.state, topic);
 
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
       {
         "@type": "CollectionPage",
-        name: `${topic.name} RFPs`,
-        description: topic.metaDescription,
-        url: `${SITE_URL}/rfps/topic/${topic.slug}`,
-        isPartOf: { "@type": "WebSite", url: SITE_URL, name: "RFP Harvest" },
+        name: `${topic.name} RFPs in ${stateName}`,
+        url: `${SITE_URL}/rfps/${params.state}/topic/${params.topic}`,
       },
       {
         "@type": "BreadcrumbList",
         itemListElement: [
           { "@type": "ListItem", position: 1, name: "RFPs", item: `${SITE_URL}/rfps` },
-          { "@type": "ListItem", position: 2, name: topic.name, item: `${SITE_URL}/rfps/topic/${topic.slug}` },
+          { "@type": "ListItem", position: 2, name: stateName, item: `${SITE_URL}/rfps/${params.state}` },
+          { "@type": "ListItem", position: 3, name: topic.name, item: `${SITE_URL}/rfps/${params.state}/topic/${params.topic}` },
         ],
       },
     ],
@@ -108,45 +125,58 @@ export default async function TopicRfpsPage({ params }: { params: PageParams }) 
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <div className="max-w-5xl mx-auto px-4 py-8 flex-1 w-full">
+      <div className="max-w-5xl mx-auto px-4 py-8 w-full flex-1">
         <Link
-          href="/rfps"
+          href={`/rfps/${params.state}`}
           className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mb-4"
         >
           <ArrowLeft className="w-4 h-4" />
-          All topics
+          All {stateName} RFPs
         </Link>
 
         <header className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900">{topic.name} RFPs &amp; Bid Opportunities</h1>
-          <p className="mt-3 text-slate-700 max-w-2xl">{topic.intro}</p>
+          <h1 className="text-3xl font-bold text-slate-900">
+            {topic.name} RFPs in {stateName}
+          </h1>
+          <p className="mt-3 text-slate-700 max-w-2xl">
+            {topic.intro} This page filters to bids posted by {stateName} municipalities only.
+          </p>
           <div className="mt-4 flex flex-wrap gap-4 text-sm text-slate-600">
             <span>
-              <strong className="text-slate-900">{open.length}</strong> open
+              <strong className="text-slate-900">{open.length}</strong> open in {stateName}
             </span>
             {otherCount > 0 && (
               <span>
                 <strong className="text-slate-900">{otherCount}</strong> recent closed / awarded
               </span>
             )}
-            {stateCount > 0 && (
-              <span>
-                Across <strong className="text-slate-900">{stateCount}</strong>{" "}
-                {stateCount === 1 ? "state" : "states"}
-              </span>
-            )}
+            <span>
+              Tracking{" "}
+              <strong className="text-slate-900">{muniCount}</strong> {stateName}{" "}
+              {muniCount === 1 ? "municipality" : "municipalities"}
+            </span>
           </div>
         </header>
 
         <section>
           <h2 className="text-lg font-semibold text-slate-900 mb-3">
-            Open {topic.plural} opportunities
+            Open {topic.plural} opportunities in {stateName}
           </h2>
           {open.length === 0 ? (
-            <p className="text-sm text-slate-600 bg-white border border-slate-200 p-6">
-              No open {topic.name.toLowerCase()} bids right now. Check back — we re-scrape every six
-              hours.
-            </p>
+            <div className="bg-white border border-slate-200 p-6">
+              <p className="text-sm text-slate-600">
+                No open {topic.name.toLowerCase()} bids in {stateName} right now. Check back — we
+                re-scrape every six hours.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2 text-sm">
+                <Link
+                  href={`/rfps/topic/${topic.slug}`}
+                  className="text-forest-700 hover:underline"
+                >
+                  → See {topic.name.toLowerCase()} RFPs in all states
+                </Link>
+              </div>
+            </div>
           ) : (
             <ul className="divide-y divide-slate-200 bg-white border border-slate-200">
               {open.map((rfp) => (
@@ -187,11 +217,11 @@ export default async function TopicRfpsPage({ params }: { params: PageParams }) 
 
         <section className="mt-10 bg-white border border-slate-200 p-6">
           <h2 className="text-base font-semibold text-slate-900 mb-2">
-            Get alerts for new {topic.name} bids
+            Get alerts on new {topic.name} bids in {stateName}
           </h2>
           <p className="text-sm text-slate-600 mb-3">
-            Sign up free to get an email the moment a new {topic.name.toLowerCase()} RFP is posted in
-            any of our tracked municipalities. No spam; unsubscribe anytime.
+            Sign up free to get an email the moment a new {topic.name.toLowerCase()} RFP is posted
+            in {stateName}.
           </p>
           <Link
             href="/auth/signup"
@@ -199,23 +229,6 @@ export default async function TopicRfpsPage({ params }: { params: PageParams }) 
           >
             Set up free alerts
           </Link>
-        </section>
-
-        <section className="mt-10">
-          <h2 className="text-base font-semibold text-slate-900 mb-3">
-            {topic.name} RFPs by state
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-            {["nh", "me", "ma", "ct", "ri", "vt"].map((s) => (
-              <Link
-                key={s}
-                href={`/rfps/${s}/topic/${topic.slug}`}
-                className="block bg-white border border-slate-200 hover:border-forest-400 hover:shadow-sm transition-all px-3 py-2 text-sm text-slate-800 text-center"
-              >
-                {s.toUpperCase()}
-              </Link>
-            ))}
-          </div>
         </section>
       </div>
       <Footer />

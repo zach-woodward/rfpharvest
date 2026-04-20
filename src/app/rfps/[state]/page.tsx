@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { MapPin, ArrowLeft } from "lucide-react";
 import { createServiceSupabase } from "@/lib/supabase/server";
 import { stateNameFromSlug, townSlug } from "@/lib/seo/slugs";
+import { TOPICS } from "@/lib/seo/topics";
+import Footer from "@/components/layout/Footer";
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://rfpharvest.com";
 
@@ -84,12 +86,12 @@ export default async function StateRfpsPage({ params }: { params: PageParams }) 
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="max-w-5xl mx-auto px-4 py-8 flex-1 w-full">
         <Link href="/" className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mb-4">
           <ArrowLeft className="w-4 h-4" />
           All coverage
@@ -122,7 +124,29 @@ export default async function StateRfpsPage({ params }: { params: PageParams }) 
             </Link>
           ))}
         </div>
+
+        <section className="mt-12">
+          <h2 className="text-lg font-semibold text-slate-900 mb-3">
+            {stateName} RFPs by trade
+          </h2>
+          <p className="text-sm text-slate-600 mb-4 max-w-2xl">
+            Jump to {stateName}-specific listings for a single trade — construction, HVAC,
+            paving, engineering, and more.
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+            {TOPICS.map((t) => (
+              <Link
+                key={t.slug}
+                href={`/rfps/${params.state}/topic/${t.slug}`}
+                className="block bg-white border border-slate-200 hover:border-forest-400 hover:shadow-sm transition-all px-3 py-2 text-sm text-slate-800"
+              >
+                {t.name}
+              </Link>
+            ))}
+          </div>
+        </section>
       </div>
+      <Footer />
     </div>
   );
 }

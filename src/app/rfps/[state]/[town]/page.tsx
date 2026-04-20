@@ -5,6 +5,7 @@ import { ArrowLeft, MapPin, Calendar, ExternalLink } from "lucide-react";
 import { createServiceSupabase } from "@/lib/supabase/server";
 import { stateNameFromSlug, townSlug } from "@/lib/seo/slugs";
 import { formatDate } from "@/lib/utils";
+import Footer from "@/components/layout/Footer";
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://rfpharvest.com";
 
@@ -87,12 +88,12 @@ export default async function TownRfpsPage({ params }: { params: PageParams }) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="max-w-5xl mx-auto px-4 py-8 flex-1 w-full">
         <Link
           href={`/rfps/${params.state}`}
           className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mb-4"
@@ -153,6 +154,7 @@ export default async function TownRfpsPage({ params }: { params: PageParams }) {
           </section>
         )}
       </div>
+      <Footer />
     </div>
   );
 }

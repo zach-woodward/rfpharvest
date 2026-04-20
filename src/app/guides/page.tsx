@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BookOpen, Clock } from "lucide-react";
 import { GUIDES } from "@/lib/seo/guides";
+import Footer from "@/components/layout/Footer";
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://rfpharvest.com";
 
@@ -35,12 +36,12 @@ export default function GuidesIndexPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <div className="max-w-5xl mx-auto px-4 py-10">
+      <div className="max-w-5xl mx-auto px-4 py-10 flex-1 w-full">
         <header className="mb-8">
           <div className="flex items-center gap-2 text-sm text-slate-600 mb-2">
             <BookOpen className="w-4 h-4" />
@@ -72,6 +73,7 @@ export default function GuidesIndexPage() {
           ))}
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

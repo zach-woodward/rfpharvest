@@ -77,6 +77,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         changeFrequency: "daily",
         priority: 0.5,
       });
+      // Every covered state gets a full topic matrix — the long-tail
+      // "<topic> RFPs in <state>" intersection pages.
+      for (const t of TOPICS) {
+        entries.push({
+          url: `${SITE_URL}/rfps/${sSlug}/topic/${t.slug}`,
+          changeFrequency: "daily",
+          priority: 0.65,
+        });
+      }
     }
   }
 

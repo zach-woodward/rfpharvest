@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Clock, BookOpen } from "lucide-react";
 import { GUIDES, guideBySlug } from "@/lib/seo/guides";
+import Footer from "@/components/layout/Footer";
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://rfpharvest.com";
 
@@ -76,14 +77,14 @@ export default function GuidePage({ params }: { params: PageParams }) {
       : null;
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       {faqLd && (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
       )}
 
-      <article className="max-w-3xl mx-auto px-4 py-10">
+      <article className="max-w-3xl mx-auto px-4 py-10 flex-1 w-full">
         <Link
           href="/guides"
           className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mb-6"
@@ -163,6 +164,7 @@ export default function GuidePage({ params }: { params: PageParams }) {
           </Link>
         </section>
       </article>
+      <Footer />
     </div>
   );
 }
