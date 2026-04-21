@@ -23,21 +23,30 @@ export class CivicPlusScraper implements ScraperAdapter {
     try {
       let html: string;
       if (config.requires_js) {
-        console.log(`[civicplus] Using browser fetch for ${url}`);
+        console.log(`[civicplus] Using browser fetch for ${url} (requires_js)`);
         html = await fetchWithBrowser(url);
       } else {
-        const response = await fetch(url, {
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        // Plain fetch first. CivicPlus sites often share a Cloudflare
+        // front and rate-limit server IPs aggressively; on any fetch
+        // failure, fall back to stealth Puppeteer which carries a
+        // realistic browser TLS fingerprint that passes where plain
+        // fetch doesn't.
+        try {
+          const response = await fetch(url, {
+            headers: {
+              "User-Agent":
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            },
+          });
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          html = await response.text();
+        } catch (fetchErr) {
+          const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+          console.log(`[civicplus] plain fetch failed for ${url} (${msg}); falling back to stealth browser`);
+          html = await fetchWithBrowser(url);
         }
-
-        html = await response.text();
       }
       const $ = cheerio.load(html);
 
