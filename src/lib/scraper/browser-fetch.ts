@@ -14,10 +14,12 @@
  */
 
 const FLARESOLVERR_TIMEOUT_MS = 60000;
-const PUPPETEER_NAV_TIMEOUT_MS = 45000;
+// Bumped from 45s: the 2GB-RAM droplet swaps heavily when Chromium is
+// active and Cloudflare JS challenges can take 20-40s on their own.
+const PUPPETEER_NAV_TIMEOUT_MS = 90000;
 const INITIAL_WAIT_MS = 4000;
 const CLOUDFLARE_POLL_INTERVAL_MS = 2000;
-const CLOUDFLARE_MAX_WAIT_MS = 30000;
+const CLOUDFLARE_MAX_WAIT_MS = 45000;
 
 export async function fetchWithBrowser(url: string): Promise<string> {
   const flareSolverrUrl = process.env.FLARESOLVERR_URL;
