@@ -45,6 +45,8 @@ export default function DashboardPage() {
 
   const isAuthenticated = !!profile;
   const isPro = profile?.subscription_tier === "pro" || profile?.subscription_tier === "enterprise";
+  const [activeAlertCount, setActiveAlertCount] = useState(0);
+  const canSaveAlert = isPro || (isAuthenticated && activeAlertCount < 1);
 
   // Load filter options and profile on mount
   useEffect(() => {
@@ -83,12 +85,16 @@ export default function DashboardPage() {
       }
 
       if (userRes.data.user) {
-        const { data: profileData } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", userRes.data.user.id)
-          .single();
+        const [{ data: profileData }, { count: alertCount }] = await Promise.all([
+          supabase.from("profiles").select("*").eq("id", userRes.data.user.id).single(),
+          supabase
+            .from("user_alerts")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", userRes.data.user.id)
+            .eq("active", true),
+        ]);
         if (profileData) setProfile(profileData as Profile);
+        setActiveAlertCount(alertCount || 0);
       }
     }
     loadFilterOptions();
@@ -225,7 +231,7 @@ export default function DashboardPage() {
         filters={filters}
         onFiltersChange={setFilters}
         onSaveAsAlert={saveAsAlert}
-        canSaveAlert={isPro}
+        canSaveAlert={canSaveAlert}
         isAuthenticated={isAuthenticated}
       />
 

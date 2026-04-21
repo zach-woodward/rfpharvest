@@ -1,12 +1,23 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Lazy-init so `next build` doesn't fail on missing runtime env vars
+// when the /api/cron/summarize route imports this module.
+let _supabase: SupabaseClient | null = null;
+function getSupabase() {
+  if (!_supabase) {
+    _supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+  }
+  return _supabase;
+}
+let _openai: OpenAI | null = null;
+function getOpenai() {
+  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return _openai;
+}
 
 const MAX_CONTENT_LENGTH = 12000; // Characters sent to OpenAI
 const BATCH_SIZE = 25;
@@ -62,7 +73,7 @@ async function fetchDocumentContent(url: string): Promise<string | null> {
 }
 
 async function summarizeRfp(content: string, title: string): Promise<string> {
-  const response = await openai.chat.completions.create({
+  const response = await getOpenai().chat.completions.create({
     model: "gpt-4o-mini",
     messages: [
       {
@@ -89,6 +100,8 @@ export async function runSummarize(): Promise<SummarizeRunSummary> {
     no_content: 0,
     errored: 0,
   };
+
+  const supabase = getSupabase();
 
   const { data: qaRun } = await supabase
     .from("qa_run_results")

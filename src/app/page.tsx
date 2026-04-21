@@ -1,17 +1,20 @@
 import Link from "next/link";
-import { FileText, Bell, Search, Zap, Shield, MapPin, Wheat } from "lucide-react";
+import { FileText, Bell, Search, Zap, Shield, MapPin, Wheat, Calendar, ExternalLink } from "lucide-react";
 import { createPublicSupabase } from "@/lib/supabase/server";
 import Footer from "@/components/layout/Footer";
-import { stateSlug, stateNameFromSlug } from "@/lib/seo/slugs";
+import DigestSignup from "@/components/home/DigestSignup";
+import { stateSlug, stateNameFromSlug, townSlug } from "@/lib/seo/slugs";
+import { formatDate } from "@/lib/utils";
 
-export const revalidate = 1800; // 30 min ISR; coverage doesn't change faster
+export const revalidate = 1800;
 
-const SHOW_LIVE_TOWNS = 24; // truncate the public list so it doesn't sprawl
+const SHOW_LIVE_TOWNS = 24;
+const SAMPLE_RFPS_COUNT = 3;
 
 export default async function HomePage() {
   const supabase = createPublicSupabase();
 
-  const [{ data: municipalities }, { data: rfps }] = await Promise.all([
+  const [{ data: municipalities }, { data: rfps }, { data: sampleRfps }] = await Promise.all([
     supabase
       .from("municipalities")
       .select("id, name, state")
@@ -19,6 +22,14 @@ export default async function HomePage() {
       .order("state")
       .order("name"),
     supabase.from("rfps").select("municipality_id, status"),
+    supabase
+      .from("rfps")
+      .select(
+        "id, title, deadline_date, posted_date, municipality:municipalities(name, state)"
+      )
+      .eq("status", "open")
+      .order("posted_date", { ascending: false, nullsFirst: false })
+      .limit(SAMPLE_RFPS_COUNT),
   ]);
 
   const bidsByMuni = new Map<string, number>();
@@ -32,12 +43,18 @@ export default async function HomePage() {
 
   const munis = (municipalities || []) as Array<{ id: string; name: string; state: string }>;
   const liveMunis = munis.filter((m) => (bidsByMuni.get(m.id) || 0) > 0);
-  const waitingMunis = munis.filter((m) => (bidsByMuni.get(m.id) || 0) === 0);
 
   const stateSet = new Set(munis.map((m) => (m.state || "").toUpperCase()).filter(Boolean));
   const stateNames = [...stateSet].sort().map(stateNameFromSlug);
-
   const totalOpen = (rfps || []).filter((r) => r.status === "open").length;
+
+  const samples = ((sampleRfps || []) as unknown) as Array<{
+    id: string;
+    title: string;
+    deadline_date: string | null;
+    posted_date: string | null;
+    municipality: { name: string; state: string } | null;
+  }>;
 
   return (
     <div className="min-h-screen bg-white">
@@ -51,111 +68,137 @@ export default async function HomePage() {
             <span className="font-semibold text-lg tracking-tight">RFP Harvest</span>
           </div>
           <nav className="flex items-center gap-6">
-            <Link
-              href="/rfps"
-              className="hidden sm:inline text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
-            >
+            <Link href="/rfps" className="hidden sm:inline text-sm font-medium text-slate-600 hover:text-slate-900">
               Browse RFPs
             </Link>
-            <Link
-              href="/guides"
-              className="hidden sm:inline text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
-            >
+            <Link href="/guides" className="hidden sm:inline text-sm font-medium text-slate-600 hover:text-slate-900">
               Guides
             </Link>
-            <Link
-              href="/auth/login"
-              className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
-            >
-              Log in
+            <Link href="/pricing" className="hidden md:inline text-sm font-medium text-slate-600 hover:text-slate-900">
+              Pricing
             </Link>
-            <Link
-              href="/auth/signup"
-              className="text-sm font-medium bg-forest-600 text-white px-4 py-2 hover:bg-forest-700 transition-colors"
-            >
-              Get started
+            <Link href="/auth/login" className="text-sm font-medium text-slate-600 hover:text-slate-900">
+              Log in
             </Link>
           </nav>
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="py-20 md:py-28 border-b border-slate-200">
+      {/* Hero — email-first signup. Primary conversion surface. */}
+      <section className="py-16 md:py-24 border-b border-slate-200">
         <div className="container-app max-w-4xl">
           <div className="flex items-center gap-2 text-sm font-medium text-forest-600 mb-6">
             <MapPin className="w-4 h-4" />
-            {stateNames.length > 0
-              ? `${stateNames.length} states · ${munis.length} municipalities tracked`
-              : "Covering New England and beyond"}
+            {stateSet.size} states · {munis.length} municipalities · {totalOpen} open bids right now
           </div>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-slate-900 leading-[1.1]">
-            Never miss a government
+            Never miss a municipal
             <br />
-            contracting opportunity
+            bid in your state.
           </h1>
           <p className="mt-6 text-lg md:text-xl text-slate-600 max-w-2xl leading-relaxed">
-            RFP Harvest aggregates requests for proposals from municipal websites across{" "}
-            {stateNames.length > 0 ? stateNames.join(", ") : "New England"}. Search, filter,
-            and get alerted when opportunities match your business.
+            RFP Harvest scrapes every municipal website in {stateNames.join(", ")} every six hours and
+            emails you the new bids that match your filters. Free. No account required.
           </p>
-          <div className="mt-10 flex flex-col sm:flex-row gap-4">
-            <Link
-              href="/auth/signup"
-              className="inline-flex items-center justify-center bg-forest-600 text-white px-6 py-3 text-base font-medium hover:bg-forest-700 transition-colors"
-            >
-              Start monitoring RFPs
-            </Link>
+
+          <div className="mt-8">
+            <DigestSignup />
+          </div>
+
+          <div className="mt-6">
             <Link
               href="/rfps"
-              className="inline-flex items-center justify-center border border-slate-300 text-slate-700 px-6 py-3 text-base font-medium hover:bg-slate-50 transition-colors"
+              className="inline-flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-slate-900"
             >
-              Browse RFPs for free
+              Or browse {totalOpen} open bids without signing up
+              <span aria-hidden>→</span>
             </Link>
           </div>
         </div>
       </section>
 
-      {/* State coverage grid — links to programmatic state pages */}
-      <section id="coverage" className="py-20 border-b border-slate-200">
-        <div className="container-app">
-          <h2 className="text-2xl font-bold tracking-tight text-slate-900 mb-2">Coverage</h2>
-          <p className="text-slate-600 mb-10">
-            {liveMunis.length} municipalities publishing active bids across {stateSet.size} states.
-            {waitingMunis.length > 0 && ` ${waitingMunis.length} more tracked and waiting for their next posting.`}
-          </p>
-
-          <div className="mb-10">
-            <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-4">
-              Browse by state
-            </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              {[...stateSet].sort().map((st) => {
-                const stateMunis = munis.filter((m) => m.state === st);
-                const openInState = stateMunis.reduce(
-                  (s, m) => s + (openBidsByMuni.get(m.id) || 0),
-                  0
-                );
-                return (
-                  <Link
-                    key={st}
-                    href={`/rfps/${stateSlug(st)}`}
-                    className="block bg-white border border-slate-200 hover:border-forest-400 hover:shadow-sm transition-all p-4"
-                  >
-                    <div className="font-semibold text-slate-900">{stateNameFromSlug(st)}</div>
-                    <div className="text-xs text-slate-500 mt-1">
-                      {stateMunis.length} {stateMunis.length === 1 ? "municipality" : "municipalities"}
+      {/* Sample RFPs — showing the product beats describing it */}
+      {samples.length > 0 && (
+        <section className="py-14 bg-slate-50 border-b border-slate-200">
+          <div className="container-app max-w-4xl">
+            <div className="flex items-baseline justify-between mb-5">
+              <h2 className="text-lg font-semibold text-slate-900">Latest bids right now</h2>
+              <Link href="/rfps" className="text-sm font-medium text-forest-700 hover:underline">
+                See all {totalOpen} →
+              </Link>
+            </div>
+            <div className="space-y-2">
+              {samples.map((rfp) => (
+                <Link
+                  key={rfp.id}
+                  href={`/rfp/${rfp.id}`}
+                  className="block bg-white border border-slate-200 hover:border-forest-400 transition-colors p-4"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-semibold text-slate-900 line-clamp-1">
+                        {rfp.title}
+                      </h3>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
+                        {rfp.municipality && (
+                          <span className="inline-flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            {rfp.municipality.name}, {rfp.municipality.state}
+                          </span>
+                        )}
+                        {rfp.posted_date && <span>Posted {formatDate(rfp.posted_date)}</span>}
+                        {rfp.deadline_date && (
+                          <span className="inline-flex items-center gap-1 text-slate-700 font-medium">
+                            <Calendar className="w-3 h-3" />
+                            Due {formatDate(rfp.deadline_date)}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className="mt-2 text-sm text-forest-700 font-medium">
-                      {openInState} open {openInState === 1 ? "bid" : "bids"}
-                    </div>
-                  </Link>
-                );
-              })}
+                    <ExternalLink className="w-4 h-4 text-slate-400 shrink-0 mt-1" />
+                  </div>
+                </Link>
+              ))}
             </div>
           </div>
+        </section>
+      )}
 
-          <div className="mb-8">
-            <div className="flex items-baseline justify-between mb-4">
+      {/* State coverage grid */}
+      <section id="coverage" className="py-16 border-b border-slate-200">
+        <div className="container-app">
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900 mb-2">Coverage</h2>
+          <p className="text-slate-600 mb-8">
+            {liveMunis.length} municipalities publishing active bids across {stateSet.size} states.
+          </p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
+            {[...stateSet].sort().map((st) => {
+              const stateMunis = munis.filter((m) => m.state === st);
+              const openInState = stateMunis.reduce(
+                (s, m) => s + (openBidsByMuni.get(m.id) || 0),
+                0
+              );
+              return (
+                <Link
+                  key={st}
+                  href={`/rfps/${stateSlug(st)}`}
+                  className="block bg-white border border-slate-200 hover:border-forest-400 hover:shadow-sm transition-all p-4"
+                >
+                  <div className="font-semibold text-slate-900">{stateNameFromSlug(st)}</div>
+                  <div className="text-xs text-slate-500 mt-1">
+                    {stateMunis.length} {stateMunis.length === 1 ? "municipality" : "municipalities"}
+                  </div>
+                  <div className="mt-2 text-sm text-forest-700 font-medium">
+                    {openInState} open {openInState === 1 ? "bid" : "bids"}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+
+          <div className="mb-6">
+            <div className="flex items-baseline justify-between mb-3">
               <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wider">
                 Live municipalities
               </h3>
@@ -165,17 +208,18 @@ export default async function HomePage() {
                 </Link>
               )}
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
               {liveMunis.slice(0, SHOW_LIVE_TOWNS).map((m) => (
-                <div
+                <Link
                   key={m.id}
-                  className="flex items-center gap-2 text-sm text-slate-700 bg-white border border-slate-200 px-3 py-2"
+                  href={`/rfps/${stateSlug(m.state)}/${townSlug(m.name)}`}
+                  className="flex items-center gap-2 text-sm text-slate-700 bg-white border border-slate-200 hover:border-forest-400 px-3 py-2"
                 >
                   <span className="w-2 h-2 bg-green-500 rounded-full shrink-0" />
                   <span className="truncate">
                     {m.name} <span className="text-slate-400 text-xs">{m.state}</span>
                   </span>
-                </div>
+                </Link>
               ))}
             </div>
           </div>
@@ -187,7 +231,7 @@ export default async function HomePage() {
             </div>
             <Link
               href="/request-town"
-              className="shrink-0 text-sm font-medium bg-forest-600 text-white px-4 py-2 hover:bg-forest-700 transition-colors"
+              className="shrink-0 text-sm font-medium bg-forest-600 text-white px-4 py-2 hover:bg-forest-700"
             >
               Request a town
             </Link>
@@ -196,31 +240,31 @@ export default async function HomePage() {
       </section>
 
       {/* Features */}
-      <section className="py-20">
+      <section className="py-16">
         <div className="container-app">
-          <h2 className="text-2xl font-bold tracking-tight text-slate-900 mb-12">How it works</h2>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900 mb-10">How it works</h2>
           <div className="grid md:grid-cols-3 gap-8 md:gap-12">
             <FeatureCard
               icon={<Search className="w-5 h-5" />}
-              title="Aggregated search"
-              description="All municipal RFPs in one place. Filter by state, trade, municipality, deadline, and keywords."
+              title="One feed. Every town."
+              description={`All ${munis.length} municipalities in ${stateNames.join(", ")} aggregated into one searchable feed. Filter by state, trade, deadline, or keyword.`}
+            />
+            <FeatureCard
+              icon={<Bell className="w-5 h-5" />}
+              title="Email alerts"
+              description="Save a filter, get an email digest every morning with the new bids that matched. Pro users get unlimited alerts; Free gets one."
             />
             <FeatureCard
               icon={<Zap className="w-5 h-5" />}
               title="AI summaries"
-              description="Concise AI-generated summaries of RFP documents so you can quickly assess fit."
-            />
-            <FeatureCard
-              icon={<Bell className="w-5 h-5" />}
-              title="Smart alerts"
-              description="Set up filters and get email digests when new opportunities match your criteria."
+              description="For Pro users, every new RFP gets a concise AI-generated summary — scope, requirements, budget, timeline — so you can decide if it's worth a full read in 15 seconds."
             />
           </div>
         </div>
       </section>
 
-      {/* Stats / Trust — all numbers dynamic from the DB */}
-      <section className="py-16 bg-slate-50 border-y border-slate-200">
+      {/* Social proof stat band */}
+      <section className="py-12 bg-slate-50 border-y border-slate-200">
         <div className="container-app">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             <Stat value={munis.length.toString()} label="Municipalities tracked" />
@@ -228,22 +272,31 @@ export default async function HomePage() {
             <Stat value={totalOpen.toString()} label="Open bids right now" />
             <Stat value="6h" label="Refresh cycle" />
           </div>
+          <p className="text-center text-xs text-slate-500 mt-8">
+            Every bid is scraped directly from the town&apos;s website, deduplicated, and linked back to
+            the original posting. Nothing scraped, nothing invented.
+          </p>
         </div>
       </section>
 
-      {/* Pricing preview */}
-      <section className="py-20">
+      {/* Pricing */}
+      <section className="py-16">
         <div className="container-app max-w-4xl">
-          <h2 className="text-2xl font-bold tracking-tight text-slate-900 mb-4">Simple pricing</h2>
-          <p className="text-slate-600 mb-12">
-            Start free. Upgrade when you need alerts and AI summaries.
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900 mb-3">Simple pricing</h2>
+          <p className="text-slate-600 mb-10">
+            Start free. Upgrade when you need alerts on more than one filter.
           </p>
           <div className="grid md:grid-cols-2 gap-6">
             <PricingCard
               name="Free"
               price="$0"
               period="/month"
-              features={["Browse all RFPs", "Search & filter", "View full RFP details"]}
+              features={[
+                "Browse all RFPs",
+                "Search & filter by state, trade, keyword",
+                "1 saved email alert",
+                "Weekly digest",
+              ]}
               cta="Get started"
               href="/auth/signup"
             />
@@ -253,15 +306,20 @@ export default async function HomePage() {
               period="/month"
               features={[
                 "Everything in Free",
-                "AI-powered summaries",
-                "Email alerts & digests",
-                "Saved filters (up to 10)",
+                "Unlimited email alerts",
+                "Daily digest",
+                "AI-powered summaries on every bid",
                 "Priority support",
               ]}
               cta="Start free trial"
               href="/auth/signup?plan=pro"
               highlighted
             />
+          </div>
+          <div className="mt-6 text-center">
+            <Link href="/pricing" className="text-sm text-forest-700 hover:underline">
+              See full feature comparison →
+            </Link>
           </div>
         </div>
       </section>

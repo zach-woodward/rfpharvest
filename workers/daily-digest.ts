@@ -1,12 +1,23 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy-init: module-level `createClient` fails during `next build`
+// because SUPABASE_SERVICE_ROLE_KEY isn't a build-time env var.
+let _supabase: SupabaseClient | null = null;
+function getSupabase() {
+  if (!_supabase) {
+    _supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+  }
+  return _supabase;
+}
+let _resend: Resend | null = null;
+function getResend() {
+  if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY);
+  return _resend;
+}
 
 interface AlertMatch {
   alertId: string;
@@ -28,6 +39,9 @@ export async function runDailyDigest(): Promise<DigestRunSummary> {
     emails_failed: 0,
     total_rfps_sent: 0,
   };
+
+  const supabase = getSupabase();
+  const resend = getResend();
 
   const qaStartedAt = new Date().toISOString();
   const { data: qaRun } = await supabase
@@ -93,7 +107,10 @@ export async function runDailyDigest(): Promise<DigestRunSummary> {
 
   for (const alert of alerts) {
     const profile = (alert as any).profile;
-    if (!profile || profile.subscription_tier === "free") continue;
+    if (!profile) continue;
+    // Free tier is capped at 1 alert at creation time (see /api/signup/digest
+    // and the dashboard save-alert flow). Any active alert a free user has is
+    // therefore deliverable. Gate on the active flag, not on tier.
 
     if (!userAlerts[alert.user_id]) {
       userAlerts[alert.user_id] = { profile, alerts: [] };
