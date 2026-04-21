@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { MapPin, Layers, Clock } from "lucide-react";
-import { createServiceSupabase } from "@/lib/supabase/server";
+import { createPublicSupabase } from "@/lib/supabase/server";
 import { stateSlug, stateNameFromSlug } from "@/lib/seo/slugs";
 import { TOPICS } from "@/lib/seo/topics";
 import Footer from "@/components/layout/Footer";
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 };
 
 export default async function RfpsIndexPage() {
-  const supabase = createServiceSupabase();
+  const supabase = createPublicSupabase();
 
   const [{ data: municipalities }, { count: totalOpen }] = await Promise.all([
     supabase.from("municipalities").select("id, name, state").eq("active", true),

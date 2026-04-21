@@ -14,10 +14,6 @@ export const revalidate = 1800;
 
 type PageParams = { topic: string };
 
-export async function generateStaticParams() {
-  return TOPICS.map((t) => ({ topic: t.slug }));
-}
-
 export async function generateMetadata({
   params,
 }: {

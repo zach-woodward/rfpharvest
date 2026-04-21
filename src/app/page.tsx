@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { FileText, Bell, Search, Zap, Shield, MapPin, Wheat } from "lucide-react";
-import { createServiceSupabase } from "@/lib/supabase/server";
+import { createPublicSupabase } from "@/lib/supabase/server";
 import Footer from "@/components/layout/Footer";
 import { stateSlug, stateNameFromSlug } from "@/lib/seo/slugs";
 
@@ -9,7 +9,7 @@ export const revalidate = 1800; // 30 min ISR; coverage doesn't change faster
 const SHOW_LIVE_TOWNS = 24; // truncate the public list so it doesn't sprawl
 
 export default async function HomePage() {
-  const supabase = createServiceSupabase();
+  const supabase = createPublicSupabase();
 
   const [{ data: municipalities }, { data: rfps }] = await Promise.all([
     supabase

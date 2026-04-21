@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Calendar, MapPin } from "lucide-react";
 import { createServiceSupabase } from "@/lib/supabase/server";
-import { TOPICS, topicBySlug, type Topic } from "@/lib/seo/topics";
+import { topicBySlug, type Topic } from "@/lib/seo/topics";
 import { stateSlug, townSlug, stateNameFromSlug } from "@/lib/seo/slugs";
 import { formatDate } from "@/lib/utils";
 import Footer from "@/components/layout/Footer";
@@ -15,14 +15,6 @@ export const revalidate = 1800;
 const COVERED_STATES = ["nh", "me", "ma", "ct", "ri", "vt"];
 
 type PageParams = { state: string; topic: string };
-
-export function generateStaticParams() {
-  const params: PageParams[] = [];
-  for (const state of COVERED_STATES) {
-    for (const t of TOPICS) params.push({ state, topic: t.slug });
-  }
-  return params;
-}
 
 export async function generateMetadata({
   params,

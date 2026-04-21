@@ -1,5 +1,20 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+
+// Stateless anon-key client for SSG/ISR pages that only read public data
+// (RLS allows anonymous select on rfps + municipalities). Unlike
+// createServerSupabase it doesn't touch cookies() — which is important
+// because pages calling cookies() get marked dynamic, defeating ISR.
+// Unlike createServiceSupabase it uses NEXT_PUBLIC_ keys that Docker
+// already passes as build args, so it works during `next build`.
+export function createPublicSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { persistSession: false } }
+  );
+}
 
 export function createServerSupabase() {
   const cookieStore = cookies();

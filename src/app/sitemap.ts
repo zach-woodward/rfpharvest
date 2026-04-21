@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { createServiceSupabase } from "@/lib/supabase/server";
+import { createPublicSupabase } from "@/lib/supabase/server";
 import { stateSlug, townSlug } from "@/lib/seo/slugs";
 import { TOPICS } from "@/lib/seo/topics";
 import { GUIDES } from "@/lib/seo/guides";
@@ -9,7 +9,7 @@ const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://rfpharvest.com";
 export const revalidate = 3600; // regenerate at most once per hour
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const supabase = createServiceSupabase();
+  const supabase = createPublicSupabase();
 
   const entries: MetadataRoute.Sitemap = [
     { url: `${SITE_URL}/`, changeFrequency: "daily", priority: 1.0 },
