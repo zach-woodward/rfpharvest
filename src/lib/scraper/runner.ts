@@ -157,8 +157,13 @@ export async function runAllScrapers(targetId?: string): Promise<ScrapeRunSummar
         `[scrape] ${muni.name}: ${newCount} new, ${updatedCount} updated, ${spamCount} spam, ${errorCount} errors`
       );
 
-      // Polite delay between municipalities
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Polite delay between municipalities. Was 1s; bumped to 5s because
+      // many municipal sites (esp. CivicPlus, which 40+ of ours share)
+      // sit behind Cloudflare and rate-limit aggressive scrapers quickly —
+      // we'd start getting connection timeouts across unrelated hosts.
+      // Adds randomness to avoid synchronized repeat patterns.
+      const jitter = Math.floor(Math.random() * 2000);
+      await new Promise((resolve) => setTimeout(resolve, 5000 + jitter));
     } catch (err) {
       console.error(`[scrape] Error scraping ${muni.name}:`, err);
       const errorMessage = err instanceof Error ? err.message : String(err);
