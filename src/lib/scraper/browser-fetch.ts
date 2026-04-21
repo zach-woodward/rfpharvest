@@ -70,6 +70,7 @@ async function fetchViaStealth(url: string): Promise<string> {
 
   const browser = await puppeteerExtra.launch({
     headless: true,
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",

@@ -42,6 +42,26 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# Puppeteer/stealth + their transitive deps load via dynamic require.
+# Next's output-file-trace misses the full tree even with
+# outputFileTracingIncludes, so overlay the builder's full node_modules
+# on top of the standalone minimal set. +~500 MB image; bullet-proof.
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+
+# Chromium runtime deps for puppeteer-extra stealth (Debian would
+# bundle these; Alpine needs them explicit). Only installing the
+# bare minimum so the headless Chromium bundled by puppeteer can launch.
+USER root
+RUN apk add --no-cache \
+      chromium \
+      nss \
+      freetype \
+      harfbuzz \
+      ca-certificates \
+      ttf-freefont
+ENV PUPPETEER_SKIP_DOWNLOAD=1
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000
