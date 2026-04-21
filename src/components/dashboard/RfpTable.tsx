@@ -63,6 +63,11 @@ function RfpRow({ rfp }: { rfp: Rfp }) {
               <span className="flex items-center gap-1 text-xs text-slate-600">
                 <MapPin className="w-3 h-3" />
                 {rfp.municipality.name}
+                {rfp.municipality.state && (
+                  <span className="text-slate-400 font-medium ml-0.5">
+                    {rfp.municipality.state}
+                  </span>
+                )}
               </span>
             )}
             {rfp.category && (

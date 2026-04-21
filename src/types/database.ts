@@ -89,6 +89,7 @@ export interface ScrapeLog {
 export interface AlertFilters {
   categories?: string[];
   municipalities?: string[];
+  states?: string[];
   keywords?: string[];
   status?: RfpStatus[];
 }

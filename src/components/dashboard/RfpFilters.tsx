@@ -13,6 +13,7 @@ interface RfpFiltersProps {
     search: string;
     categories: string[];
     municipalities: string[];
+    states: string[];
     status: string[];
     sortBy: string;
   };
@@ -37,6 +38,7 @@ export default function RfpFilters({
   const activeFilterCount =
     filters.categories.length +
     filters.municipalities.length +
+    filters.states.length +
     filters.status.length;
 
   function updateFilter<K extends keyof RfpFiltersProps["filters"]>(
@@ -47,7 +49,7 @@ export default function RfpFilters({
   }
 
   function toggleArrayFilter(
-    key: "categories" | "municipalities" | "status",
+    key: "categories" | "municipalities" | "states" | "status",
     value: string
   ) {
     const current = filters[key];
@@ -62,10 +64,28 @@ export default function RfpFilters({
       search: "",
       categories: [],
       municipalities: [],
+      states: [],
       status: [],
       sortBy: "posted_date",
     });
   }
+
+  // All known states in the data
+  const allStates = [
+    ...new Set(
+      [...municipalities, ...comingSoon]
+        .map((m) => (m.state || "").toUpperCase())
+        .filter(Boolean)
+    ),
+  ].sort();
+
+  // When states are selected, narrow the municipality chooser to those states
+  const visibleMunicipalities = filters.states.length > 0
+    ? municipalities.filter((m) => filters.states.includes((m.state || "").toUpperCase()))
+    : municipalities;
+  const visibleComingSoon = filters.states.length > 0
+    ? comingSoon.filter((m) => filters.states.includes((m.state || "").toUpperCase()))
+    : comingSoon;
 
   return (
     <div className="space-y-3">
@@ -119,12 +139,15 @@ export default function RfpFilters({
           {filters.categories.map((c) => (
             <FilterPill key={c} label={c} onRemove={() => toggleArrayFilter("categories", c)} />
           ))}
+          {filters.states.map((s) => (
+            <FilterPill key={`st-${s}`} label={s} onRemove={() => toggleArrayFilter("states", s)} />
+          ))}
           {filters.municipalities.map((m) => {
             const muni = municipalities.find((mu) => mu.id === m);
             return (
               <FilterPill
                 key={m}
-                label={muni?.name || m}
+                label={muni ? `${muni.name}, ${muni.state}` : m}
                 onRemove={() => toggleArrayFilter("municipalities", m)}
               />
             );
@@ -171,6 +194,35 @@ export default function RfpFilters({
       {/* Advanced filters panel */}
       {showAdvanced && (
         <div className="border border-slate-200 bg-white p-4 space-y-4">
+          {/* State */}
+          {allStates.length > 0 && (
+            <div>
+              <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">
+                State
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {allStates.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => toggleArrayFilter("states", s)}
+                    className={`px-3 py-1 text-xs font-medium border transition-colors ${
+                      filters.states.includes(s)
+                        ? "border-forest-600 text-forest-700 bg-forest-50"
+                        : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+              {filters.states.length > 0 && (
+                <p className="text-[11px] text-slate-400 mt-1.5">
+                  Municipality picker below is scoped to your selected {filters.states.length === 1 ? "state" : "states"}.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Status */}
           <div>
             <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">
@@ -221,7 +273,7 @@ export default function RfpFilters({
               Municipality
             </label>
             <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
-              {municipalities.map((m) => (
+              {visibleMunicipalities.map((m) => (
                 <button
                   key={m.id}
                   onClick={() => toggleArrayFilter("municipalities", m.id)}
@@ -231,28 +283,28 @@ export default function RfpFilters({
                       : "border-slate-200 text-slate-600 hover:bg-slate-50"
                   }`}
                 >
-                  {m.name}
+                  {m.name} <span className="text-slate-400">{m.state}</span>
                 </button>
               ))}
-              {comingSoon.length > 0 && (
+              {visibleComingSoon.length > 0 && (
                 <>
                   <span className="w-full h-0" />
-                  {comingSoon.map((m) => (
+                  {visibleComingSoon.map((m) => (
                     <span
                       key={m.id}
                       className="px-3 py-1 text-xs font-medium border border-dashed border-slate-200 text-slate-350 cursor-default select-none"
-                      title={`${m.name} — coming soon`}
+                      title={`${m.name} — no current bids`}
                       style={{ color: "#b0b8c4" }}
                     >
-                      {m.name}
+                      {m.name} <span className="opacity-70">{m.state}</span>
                     </span>
                   ))}
                 </>
               )}
             </div>
-            {comingSoon.length > 0 && (
+            {visibleComingSoon.length > 0 && (
               <p className="text-[11px] text-slate-400 mt-2">
-                Grayed-out towns are coming soon.{" "}
+                Grayed-out towns are tracked but have no open bids right now.{" "}
                 <a href="/request-town" className="text-forest-600 hover:underline">
                   Request a town
                 </a>

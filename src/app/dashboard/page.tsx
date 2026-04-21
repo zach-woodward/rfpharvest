@@ -11,6 +11,7 @@ interface DashboardFilters {
   search: string;
   categories: string[];
   municipalities: string[];
+  states: string[];
   status: string[];
   sortBy: string;
 }
@@ -19,6 +20,7 @@ const defaultFilters: DashboardFilters = {
   search: "",
   categories: [],
   municipalities: [],
+  states: [],
   status: [],
   sortBy: "posted_date",
 };
@@ -108,8 +110,19 @@ export default function DashboardPage() {
     if (filters.categories.length > 0) {
       query = query.in("category", filters.categories);
     }
-    if (filters.municipalities.length > 0) {
-      query = query.in("municipality_id", filters.municipalities);
+    // If states are selected, narrow to municipalities in those states.
+    // Explicit municipality selections take precedence when both are set.
+    let effectiveMuniIds = filters.municipalities;
+    if (filters.states.length > 0 && filters.municipalities.length === 0) {
+      effectiveMuniIds = [
+        ...municipalityList.filter((m) => filters.states.includes((m.state || "").toUpperCase())).map((m) => m.id),
+        ...comingSoonList.filter((m) => filters.states.includes((m.state || "").toUpperCase())).map((m) => m.id),
+      ];
+      // If a state filter is active but that state has no towns yet, force no results
+      if (effectiveMuniIds.length === 0) effectiveMuniIds = ["__no_match__"];
+    }
+    if (effectiveMuniIds.length > 0) {
+      query = query.in("municipality_id", effectiveMuniIds);
     }
     if (filters.status.length > 0) {
       query = query.in("status", filters.status);
@@ -125,7 +138,7 @@ export default function DashboardPage() {
     setRfps((data as Rfp[]) || []);
     setTotal(count || 0);
     setLoading(false);
-  }, [filters, page, supabase]);
+  }, [filters, page, supabase, municipalityList, comingSoonList]);
 
   useEffect(() => {
     fetchRfps();
@@ -148,6 +161,7 @@ export default function DashboardPage() {
         : [],
       categories: filters.categories,
       municipalities: filters.municipalities,
+      states: filters.states,
       status: filters.status as RfpStatus[],
     };
 
@@ -169,6 +183,8 @@ export default function DashboardPage() {
         (id) => municipalityList.find((m) => m.id === id)?.name || id
       );
       alertName += ` in ${names.join(", ")}`;
+    } else if (filters.states.length) {
+      alertName += ` in ${filters.states.join(", ")}`;
     }
 
     if (filters.status.length) {
