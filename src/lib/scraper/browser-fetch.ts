@@ -93,15 +93,14 @@ async function fetchViaStealth(url: string): Promise<string> {
     await page.setViewport({ width: 1366, height: 900 });
 
     // Fire-and-forget navigation: Cloudflare JS challenges make
-    // `waitUntil: "load"` / "domcontentloaded" never resolve — the page
-    // keeps running challenge JS and Puppeteer throws a timeout even
-    // though the DOM is fine. Instead, kick off the navigation with a
-    // short commit timeout and just swallow any error; we'll read the
-    // document after polling for Cloudflare to clear.
+    // `waitUntil: "load"` never resolve. "domcontentloaded" is less
+    // strict, and we swallow any error — we'll read the document
+    // directly after polling for Cloudflare to clear.
     await page
-      .goto(url, { waitUntil: "commit", timeout: PUPPETEER_NAV_TIMEOUT_MS })
+      .goto(url, { waitUntil: "domcontentloaded", timeout: PUPPETEER_NAV_TIMEOUT_MS })
       .catch(() => {
-        // Common for Cloudflare-gated pages — not fatal.
+        // Cloudflare-gated pages frequently throw navigation timeout
+        // even when the DOM is usable. Not fatal.
       });
     await new Promise((r) => setTimeout(r, INITIAL_WAIT_MS));
 
