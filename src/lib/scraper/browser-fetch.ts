@@ -22,10 +22,14 @@ const CLOUDFLARE_POLL_INTERVAL_MS = 2000;
 const CLOUDFLARE_MAX_WAIT_MS = 45000;
 
 export async function fetchWithBrowser(url: string): Promise<string> {
-  const flareSolverrUrl = process.env.FLARESOLVERR_URL;
-  if (flareSolverrUrl) {
+  // Prior behavior was: try FlareSolverr first, then stealth. In practice
+  // FlareSolverr was failing on the CivicPlus/Cloudflare pages we need
+  // and burning a 60s timeout before stealth even got its turn. Stealth
+  // succeeds where FlareSolverr doesn't, so go straight there. Opt back
+  // in via USE_FLARESOLVERR=1 if we find sites where it helps.
+  if (process.env.USE_FLARESOLVERR === "1" && process.env.FLARESOLVERR_URL) {
     try {
-      return await fetchViaFlareSolverr(url, flareSolverrUrl);
+      return await fetchViaFlareSolverr(url, process.env.FLARESOLVERR_URL);
     } catch (err) {
       console.warn(
         `[browser-fetch] FlareSolverr failed for ${url}, falling back to stealth:`,
@@ -88,12 +92,21 @@ async function fetchViaStealth(url: string): Promise<string> {
     );
     await page.setViewport({ width: 1366, height: 900 });
 
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: PUPPETEER_NAV_TIMEOUT_MS });
+    // Fire-and-forget navigation: Cloudflare JS challenges make
+    // `waitUntil: "load"` / "domcontentloaded" never resolve — the page
+    // keeps running challenge JS and Puppeteer throws a timeout even
+    // though the DOM is fine. Instead, kick off the navigation with a
+    // short commit timeout and just swallow any error; we'll read the
+    // document after polling for Cloudflare to clear.
+    await page
+      .goto(url, { waitUntil: "commit", timeout: PUPPETEER_NAV_TIMEOUT_MS })
+      .catch(() => {
+        // Common for Cloudflare-gated pages — not fatal.
+      });
     await new Promise((r) => setTimeout(r, INITIAL_WAIT_MS));
 
-    // Cloudflare JS challenges can take 10–20s to resolve. Poll the
-    // document title until it stops saying "Just a moment" or we hit
-    // the max wait. OpenGov portals in particular need this.
+    // Poll the title until it stops saying "Just a moment" or we hit
+    // the max wait. Works even if the goto above threw.
     const deadline = Date.now() + CLOUDFLARE_MAX_WAIT_MS;
     let title = await page.title().catch(() => "");
     while (Date.now() < deadline && /just a moment|attention required|cloudflare/i.test(title)) {
