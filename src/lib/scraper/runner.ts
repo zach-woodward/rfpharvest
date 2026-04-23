@@ -157,13 +157,16 @@ export async function runAllScrapers(targetId?: string): Promise<ScrapeRunSummar
         `[scrape] ${muni.name}: ${newCount} new, ${updatedCount} updated, ${spamCount} spam, ${errorCount} errors`
       );
 
-      // Polite delay between municipalities. Was 1s; bumped to 5s because
-      // many municipal sites (esp. CivicPlus, which 40+ of ours share)
-      // sit behind Cloudflare and rate-limit aggressive scrapers quickly —
-      // we'd start getting connection timeouts across unrelated hosts.
-      // Adds randomness to avoid synchronized repeat patterns.
-      const jitter = Math.floor(Math.random() * 2000);
-      await new Promise((resolve) => setTimeout(resolve, 5000 + jitter));
+      // Polite delay between municipalities. Was 5s; bumped to 15s+jitter
+      // because ~60 of our towns share the CivicPlus/Cloudflare CDN and
+      // trigger WAF rate limits against the whole droplet IP when we hit
+      // them faster than that. When rate limit kicks in, plain fetch
+      // fails → we fall back to stealth Puppeteer → stealth gets HTML
+      // but CivicPlus appears to serve empty pages to Chromium user-agent,
+      // so we end up with scrapes that "succeed" with 0 bids.
+      // Cost: 15s * 79 towns ≈ 20 min per cron cycle. Fits 6h schedule.
+      const jitter = Math.floor(Math.random() * 5000);
+      await new Promise((resolve) => setTimeout(resolve, 15000 + jitter));
     } catch (err) {
       console.error(`[scrape] Error scraping ${muni.name}:`, err);
       const errorMessage = err instanceof Error ? err.message : String(err);
