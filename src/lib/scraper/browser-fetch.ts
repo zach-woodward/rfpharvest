@@ -108,9 +108,22 @@ async function fetchViaStealth(url: string): Promise<string> {
     // the max wait. Works even if the goto above threw.
     const deadline = Date.now() + CLOUDFLARE_MAX_WAIT_MS;
     let title = await page.title().catch(() => "");
+    let sawChallenge = false;
     while (Date.now() < deadline && /just a moment|attention required|cloudflare/i.test(title)) {
+      sawChallenge = true;
       await new Promise((r) => setTimeout(r, CLOUDFLARE_POLL_INTERVAL_MS));
       title = await page.title().catch(() => "");
+    }
+
+    // After a Cloudflare challenge clears, the browser navigates to the
+    // real page. Wait for its DOM to actually render before reading.
+    // Without this we were returning a post-challenge shell with no
+    // bid data — every stealth-fetched town reported rfps_found=0.
+    if (sawChallenge) {
+      await page
+        .waitForNavigation({ waitUntil: "domcontentloaded", timeout: 15000 })
+        .catch(() => {});
+      await new Promise((r) => setTimeout(r, 3000));
     }
 
     const html = await page.content();
